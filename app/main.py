@@ -65,8 +65,8 @@ async def start_health_server():
     ports_to_try.add(10000)
 
     app_web = web.Application()
-    app_web.router.add_get("/", health_check)
-    app_web.router.add_get("/health", health_check)
+    app_web.router.add_route("*", "/", health_check)
+    app_web.router.add_route("*", "/health", health_check)
     runner = web.AppRunner(app_web)
     await runner.setup()
 
