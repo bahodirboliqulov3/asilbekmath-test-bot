@@ -228,7 +228,7 @@ async def fast_test_creator_command(message: Message, session: AsyncSession):
         bot_user = await message.bot.get_me()
         bot_username = bot_user.username
     except Exception:
-        bot_username = "tekshiruv2_bot"
+        bot_username = "asilbekmath_test_bot"
 
     preview = build_test_created_preview(test, None, None, TestStatus.ACTIVE, bot_username)
     await message.answer(preview, parse_mode="HTML")
@@ -668,7 +668,7 @@ async def schedule_duration_callback(callback: CallbackQuery, state: FSMContext,
         bot_user = await callback.bot.get_me()
         bot_username = bot_user.username
     except Exception:
-        bot_username = "tekshiruv2_bot"
+        bot_username = "asilbekmath_test_bot"
 
     preview = build_test_created_preview(test, start_dt, end_dt, status, bot_username)
 
@@ -716,7 +716,7 @@ async def process_schedule_input(message: Message, state: FSMContext, session: A
         bot_user = await message.bot.get_me()
         bot_username = bot_user.username
     except Exception:
-        bot_username = "tekshiruv2_bot"
+        bot_username = "asilbekmath_test_bot"
 
     preview = build_test_created_preview(test, start_dt, end_dt, status, bot_username)
     await message.answer(preview, reply_markup=get_admin_main_keyboard(), parse_mode="HTML")
