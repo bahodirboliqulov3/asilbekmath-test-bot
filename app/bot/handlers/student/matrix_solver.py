@@ -1,4 +1,4 @@
-﻿import html
+import html
 from datetime import datetime, timezone
 from typing import Dict, Optional
 from aiogram import Bot, F, Router
