@@ -28,6 +28,9 @@ def get_guide_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(text="👨🏫 O‘qituvchilar uchun qo‘llanma", callback_data="faq:teacher")
             ],
             [
+                InlineKeyboardButton(text="📜 Sertifikat qanday olaman?", callback_data="faq:certificate")
+            ],
+            [
                 InlineKeyboardButton(text="📨 Adminga murojaat yuborish", callback_data="student_support_prompt")
             ]
         ]
