@@ -29,8 +29,8 @@ log_file_path = logs_dir / "bot.log"
 
 file_handler = RotatingFileHandler(
     filename=str(log_file_path),
-    maxBytes=10 * 1024 * 1024,
-    backupCount=5,
+    maxBytes=10 * 1024 * 1024,  # 10 MB per file
+    backupCount=5,              # Keep up to 5 archived logs
     encoding="utf-8"
 )
 
@@ -51,36 +51,42 @@ async def create_tables():
 
 
 async def health_check(request):
-    return web.Response(text="OK", content_type="text/plain", status=200)
+    return web.Response(text="Telegram Test Platform Bot is RUNNING 24/7 OK!")
 
 
 async def start_health_server():
-    port_str = os.environ.get("PORT", "10000")
-    try:
-        port = int(port_str)
-    except ValueError:
-        port = 10000
+    ports_to_try = set()
+    if os.environ.get("PORT"):
+        try:
+            ports_to_try.add(int(os.environ["PORT"]))
+        except ValueError:
+            pass
+    ports_to_try.add(8080)
+    ports_to_try.add(10000)
 
     app_web = web.Application()
     app_web.router.add_get("/", health_check)
     app_web.router.add_get("/health", health_check)
-    app_web.router.add_head("/", health_check)
-    app_web.router.add_head("/health", health_check)
-    app_web.router.add_route("*", "/{tail:.*}", health_check)
-
     runner = web.AppRunner(app_web)
     await runner.setup()
 
-    site = web.TCPSite(runner, "0.0.0.0", port)
-    await site.start()
-    logger.info(f"Health check web server active on 0.0.0.0:{port}")
-    return runner
+    started_any = False
+    for p in sorted(ports_to_try):
+        try:
+            site = web.TCPSite(runner, "0.0.0.0", p)
+            await site.start()
+            logger.info(f"Health check web server active on 0.0.0.0:{p}")
+            started_any = True
+        except Exception as err:
+            logger.warning(f"Could not bind to port {p}: {err}")
+            
+    return runner if started_any else None
 
 
 async def main():
     logger.info("Starting Telegram Test Platform Bot with Turbo Optimization...")
 
-    # 1. Start HTTP Health Server for Render / Cloud immediately
+    # 1. Start HTTP Health Server for Render / Cloud immediately so health checks pass
     web_runner = None
     try:
         web_runner = await start_health_server()
