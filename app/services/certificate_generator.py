@@ -403,7 +403,7 @@ def generate_certificate(
     try:
         import qrcode
         qr = qrcode.QRCode(border=1, box_size=6)
-        qr.add_data(f"CERT:{cert_id}")
+        qr.add_data(f"https://t.me/asilbekmath_test_bot?start=cert_{cert_id}")
         qr.make(fit=True)
         qimg = qr.make_image(fill_color=NAVY, back_color=CREAM).convert("RGBA")
         qimg = qimg.resize((190, 190))
