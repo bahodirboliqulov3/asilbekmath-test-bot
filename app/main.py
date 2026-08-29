@@ -51,7 +51,7 @@ async def create_tables():
 
 
 async def health_check(request):
-    return web.Response(text="Telegram Test Platform Bot is RUNNING 24/7 OK!")
+    return web.Response(text="OK", content_type="text/plain", status=200)
 
 
 async def start_health_server():
@@ -62,8 +62,12 @@ async def start_health_server():
         port = 10000
 
     app_web = web.Application()
-    app_web.router.add_route("*", "/", health_check)
-    app_web.router.add_route("*", "/health", health_check)
+    app_web.router.add_get("/", health_check)
+    app_web.router.add_get("/health", health_check)
+    app_web.router.add_head("/", health_check)
+    app_web.router.add_head("/health", health_check)
+    app_web.router.add_route("*", "/{tail:.*}", health_check)
+
     runner = web.AppRunner(app_web)
     await runner.setup()
 
