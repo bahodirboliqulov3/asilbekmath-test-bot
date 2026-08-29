@@ -11,6 +11,7 @@ from .achievements import router as achievements_router
 from .support import router as support_router
 from .guide import router as guide_router
 from .matrix_solver import router as matrix_solver_router
+from .certificates import router as certificates_router
 
 student_router = Router(name="student_root")
 student_router.include_routers(
@@ -26,6 +27,7 @@ student_router.include_routers(
     achievements_router,
     support_router,
     guide_router,
+    certificates_router,
 )
 
 all = ["student_router"]
