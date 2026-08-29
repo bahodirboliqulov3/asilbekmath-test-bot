@@ -1,4 +1,5 @@
 from aiogram import Router
+from app.bot.filters.admin_filter import IsAdminFilter
 from .admin_menu import router as admin_menu_router
 from .tests_manage import router as tests_manage_router
 from .test_creator import router as test_creator_router
@@ -13,6 +14,8 @@ from .statistics import router as statistics_router
 from .settings_manage import router as settings_manage_router
 
 admin_router = Router(name="admin_root")
+admin_router.message.filter(IsAdminFilter())
+admin_router.callback_query.filter(IsAdminFilter())
 admin_router.include_routers(
     admin_menu_router,
     tests_manage_router,
