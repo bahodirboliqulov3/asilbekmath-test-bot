@@ -348,10 +348,10 @@ async def show_test_result(message: Message, result, session: AsyncSession, visu
     # === AVTOMATIK DIPLOM (70%+ ball) ===
     if result.percentage >= 70:
         try:
-            import uuid as _uuid
-            import os as _os
+            import uuid as _uuid, os as _os
             from app.services.certificate_generator import generate_certificate
             from app.database.repositories.certificate_repo import CertificateRepository
+            from app.database.models.result import Certificate as _CertModel
             from aiogram.types import FSInputFile as _FSInputFile
 
             _cert_repo = CertificateRepository(session)
@@ -360,60 +360,66 @@ async def show_test_result(message: Message, result, session: AsyncSession, visu
             if _existing:
                 _cert_id = _existing.certificate_number
                 _cert_path = _existing.pdf_path or f"/tmp/certificates/certificate_{_cert_id}.png"
+                _need_generate = not _os.path.exists(_cert_path)
             else:
-                _user_repo2 = UserRepository(session)
-                _user2 = await _user_repo2.get_by_id(result.user_id)
-                _full_name = _user2.full_name if _user2 else "O'quvchi"
                 _cert_id = f"AM-{datetime.now().year}-{_uuid.uuid4().hex[:4].upper()}"
-                _total = result.correct_count + result.incorrect_count + result.unanswered_count
+                _need_generate = True
+                _cert_path = f"/tmp/certificates/certificate_{_cert_id}.png"
+
+            if _need_generate:
+                _user_r = UserRepository(session)
+                _u = await _user_r.get_by_id(result.user_id)
+                _fname = _u.full_name if _u else "O'quvchi"
+                _total = max(
+                    result.correct_count + result.incorrect_count + result.unanswered_count, 1
+                )
                 _cert_path = generate_certificate(
-                    full_name=_full_name,
+                    full_name=_fname,
                     percent=int(result.percentage),
                     correct=result.correct_count,
-                    total=max(_total, 1),
+                    total=_total,
                     cert_id=_cert_id,
                     date_str=datetime.now().strftime("%d.%m.%Y"),
-                    exam_title=raw_test_title[:60] if raw_test_title else "MATEMATIKA VA IQ TEST",
+                    exam_title=(raw_test_title or "MATEMATIKA VA IQ TEST")[:60],
                 )
-                # Bazaga saqlash
-                try:
-                    from app.database.models.result import Certificate as _Cert
-                    _new_cert = _Cert(
-                        certificate_number=_cert_id,
-                        result_id=result.id,
-                        pdf_path=_cert_path,
-                        issued_at=datetime.now(),
-                    )
-                    session.add(_new_cert)
-                    await session.commit()
-                except Exception as _e_db:
-                    logger.warning(f"Sertifikat DB da saqlanmadi: {_e_db}")
+                # Bazaga saqlash (faqat yangi sertifikat uchun)
+                if not _existing:
+                    try:
+                        _nc = _CertModel(
+                            certificate_number=_cert_id,
+                            user_id=result.user_id,
+                            test_id=result.test_id,
+                            result_id=result.id,
+                            score=float(result.total_score or 0),
+                            percentage=float(result.percentage),
+                            pdf_path=_cert_path,
+                        )
+                        session.add(_nc)
+                        await session.commit()
+                    except Exception as _edb:
+                        logger.warning(f"Cert DB xatoligi: {_edb}")
 
-            # Diplomni foydalanuvchiga yuborish
-            if not _os.path.exists(_cert_path):
-                _cert_path = generate_certificate(
-                    full_name=_full_name if not _existing else "O'quvchi",
-                    percent=int(result.percentage),
-                    correct=result.correct_count,
-                    total=max(result.correct_count + result.incorrect_count + result.unanswered_count, 1),
-                    cert_id=_cert_id,
-                    date_str=datetime.now().strftime("%d.%m.%Y"),
-                    exam_title=raw_test_title[:60] if raw_test_title else "MATEMATIKA VA IQ TEST",
+            # Foydalanuvchiga yuborish
+            if _os.path.exists(_cert_path):
+                _daraja = (
+                    "🥇 I Darajali G'olib" if result.percentage >= 90
+                    else "🥈 II Darajali G'olib" if result.percentage >= 75
+                    else "🥉 III Darajali G'olib"
                 )
-
-            await message.answer_photo(
-                _FSInputFile(_cert_path),
-                caption=(
-                    f"\U0001f3c6 <b>Tabriklaymiz! Diplomingiz tayyor!</b>\n\n"
-                    f"\U0001f4ca <b>Natija:</b> {result.percentage}% "
-                    f"({'\U0001f947 I daraja' if result.percentage >= 90 else '\U0001f948 II daraja' if result.percentage >= 75 else '\U0001f949 III daraja'})\n"
-                    f"\U0001f522 <b>Sertifikat ID:</b> <code>{_cert_id}</code>\n\n"
-                    f"\U0001f4dc Diplomni <b>\'Sertifikatlarim\'</b> bo\'limidan istalgan payt yuklab olishingiz mumkin!"
-                ),
-                parse_mode="HTML"
-            )
-        except Exception as _e_cert:
-            logger.warning(f"Diplom generatsiya xatoligi: {_e_cert}")
+                await message.answer_photo(
+                    _FSInputFile(_cert_path),
+                    caption=(
+                        f"🏆 <b>Tabriklaymiz! Diplomingiz tayyor!</b>\n\n"
+                        f"{_daraja}\n"
+                        f"📊 <b>Natija:</b> {result.percentage}%\n"
+                        f"🔢 <b>ID:</b> <code>{_cert_id}</code>\n\n"
+                        f"📜 <i>Diplomni \"Sertifikatlarim\" bo'limidan "
+                        f"istalgan payt yuklab olishingiz mumkin!</i>"
+                    ),
+                    parse_mode="HTML"
+                )
+        except Exception as _ec:
+            logger.warning(f"Diplom generatsiya xatoligi: {_ec}")
     # ==========================================
 
 
