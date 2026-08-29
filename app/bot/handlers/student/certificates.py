@@ -8,7 +8,7 @@ router = Router(name="student_certificates")
 logger = logging.getLogger(__name__)
 
 
-@router.message(F.text == "\U0001f4dc Sertifikatlarim")
+@router.message(F.text == "📜 Sertifikatlarim")
 async def my_certificates_list(message: Message, session: AsyncSession):
     """O'quvchining barcha sertifikatlarini ko'rsatish."""
     from app.database.repositories.certificate_repo import CertificateRepository
