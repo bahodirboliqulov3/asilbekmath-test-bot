@@ -15,3 +15,4 @@ main_router.include_routers(
 )
 
 all = ["main_router"]
+from app.bot.handlers.student import certificates  # noqa
