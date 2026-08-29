@@ -252,7 +252,7 @@ async def fast_test_creator_command(message: Message, session: AsyncSession):
         "/quick_key",
         "/tezkor_kalit",
     ])
-))
+)
 async def open_quick_key_creator_handler(message: Message, state: FSMContext):
     await state.clear()
     await state.set_state(AdminQuickKeyState.waiting_for_keys)
@@ -439,7 +439,7 @@ async def process_quick_time_limit_text(message: Message, state: FSMContext):
         "/create_test",
         "/yangi_test",
     ])
-))
+)
 async def start_admin_create_test(message: Message, state: FSMContext):
     await state.clear()
     await state.set_state(AdminCreateTestState.waiting_for_title)
