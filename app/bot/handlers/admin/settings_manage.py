@@ -61,7 +61,7 @@ async def build_settings_dashboard(session: AsyncSession) -> tuple[str, InlineKe
         "/settings",
         "/sozlamalar",
     ])
-))
+)
 async def show_admin_system_settings(message: Message, session: AsyncSession):
     text, kb = await build_settings_dashboard(session)
     await message.answer(text, reply_markup=kb, parse_mode="HTML")
