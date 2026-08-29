@@ -3,7 +3,7 @@ import html
 import re
 from typing import Optional, Tuple
 from aiogram import F, Router
-from aiogram.filters import Command
+from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Document, InlineKeyboardButton, InlineKeyboardMarkup, Message, PhotoSize
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -234,8 +234,27 @@ async def fast_test_creator_command(message: Message, session: AsyncSession):
     await message.answer(preview, parse_mode="HTML")
 
 
-@router.message(F.text.in_(["🔑 Tezkor kalit qo‘shish", "🔑 Tezkor kalit qoshish", "🔑 Kalit qo‘shish", "🔑 Kalit qoshish", "/quick_key"]))
+@router.message(
+    StateFilter("*"),
+    F.text.in_([
+        "🔑 Tezkor kalit qo'shish",
+        "🔑 Tezkor kalit qo‘shish",
+        "🔑 Tezkor kalit qoshish",
+        "Tezkor kalit qo'shish",
+        "Tezkor kalit qo‘shish",
+        "Tezkor kalit qoshish",
+        "🔑 Kalit qo'shish",
+        "🔑 Kalit qo‘shish",
+        "🔑 Kalit qoshish",
+        "Kalit qo'shish",
+        "Kalit qo‘shish",
+        "Kalit qoshish",
+        "/quick_key",
+        "/tezkor_kalit",
+    ])
+))
 async def open_quick_key_creator_handler(message: Message, state: FSMContext):
+    await state.clear()
     await state.set_state(AdminQuickKeyState.waiting_for_keys)
     await message.answer(
         "🔑 <b>Tezkor Kalit Qo‘shish (Barcha formatlar)</b>\n\n"
@@ -408,8 +427,21 @@ async def process_quick_time_limit_text(message: Message, state: FSMContext):
 
 # 1. Start Test Creation: Nomini kiritish
 # 1. Start Test Creation: Nomini kiritish
-@router.message(F.text.in_(["➕ Yangi test yaratish", "➕ Yangi test", "➕ Test yaratish", "/create_test", "/yangi_test"]))
+@router.message(
+    StateFilter("*"),
+    F.text.in_([
+        "➕ Yangi test yaratish",
+        "➕ Yangi test",
+        "➕ Test yaratish",
+        "Yangi test yaratish",
+        "Yangi test",
+        "Test yaratish",
+        "/create_test",
+        "/yangi_test",
+    ])
+))
 async def start_admin_create_test(message: Message, state: FSMContext):
+    await state.clear()
     await state.set_state(AdminCreateTestState.waiting_for_title)
     await message.answer(
         "➕ <b>Yangi Test Yaratish</b>\n\n"
