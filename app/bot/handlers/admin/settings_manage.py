@@ -52,7 +52,16 @@ async def build_settings_dashboard(session: AsyncSession) -> tuple[str, InlineKe
     return text, kb
 
 
-@router.message(F.text.in_(["⚙️ Sozlamalar", "⚙️ Boshqaruv & Sozlamalar"]))
+@router.message(
+    StateFilter("*"),
+    F.text.in_([
+        "⚙️ Sozlamalar",
+        "⚙️ Boshqaruv & Sozlamalar",
+        "Sozlamalar",
+        "/settings",
+        "/sozlamalar",
+    ])
+))
 async def show_admin_system_settings(message: Message, session: AsyncSession):
     text, kb = await build_settings_dashboard(session)
     await message.answer(text, reply_markup=kb, parse_mode="HTML")
@@ -245,7 +254,7 @@ async def nav_support_callback(callback: CallbackQuery, session: AsyncSession):
 
 
 import sqlite3
-from aiogram.filters import Command
+from aiogram.filters import Command, StateFilter
 
 
 @router.message(Command("backup"))
