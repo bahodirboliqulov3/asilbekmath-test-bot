@@ -1,8 +1,13 @@
 from aiogram import F, Router
-from aiogram.types import CallbackQuery, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from aiogram.types import (
+    CallbackQuery, FSInputFile,
+    InlineKeyboardButton, InlineKeyboardMarkup, Message,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 import os
+import uuid
 import logging
+from datetime import datetime
 
 router = Router(name="student_certificates")
 logger = logging.getLogger(__name__)
@@ -10,126 +15,147 @@ logger = logging.getLogger(__name__)
 
 @router.message(F.text == "📜 Sertifikatlarim")
 async def my_certificates_list(message: Message, session: AsyncSession):
-    """O'quvchining barcha sertifikatlarini ko'rsatish."""
+    """O'quvchining barcha sertifikatlarini ro'yxatini ko'rsatadi."""
     from app.database.repositories.certificate_repo import CertificateRepository
     from app.database.repositories.user_repo import UserRepository
 
     user_repo = UserRepository(session)
     user = await user_repo.get_by_telegram_id(message.from_user.id)
     if not user:
-        await message.answer("Avval ro'yxatdan o'ting!")
+        await message.answer(
+            "⚠️ Avval ro'yxatdan o'ting!\n"
+            "/start buyrug'ini yuboring."
+        )
         return
 
     cert_repo = CertificateRepository(session)
-    certs = await cert_repo.get_by_user_id(user.id)
+    # get_user_certificates(user_id) - to'g'ri metod nomi
+    certs = await cert_repo.get_user_certificates(user.id)
 
     if not certs:
         await message.answer(
-            "\U0001f4dc <b>Sertifikatlarim</b>\n\n"
-            "Hali sertifikatingiz yo'q.\n\n"
-            "\U0001f3af Test topshirib, <b>70% va undan yuqori</b> natija to'plasangiz, "
-            "avtomatik ravishda Diplom beriladi!",
+            "📜 <b>Sertifikatlarim</b>\n\n"
+            "Sizda hali sertifikat yo'q.\n\n"
+            "🎯 Test topshirib, <b>70% va undan yuqori</b> "
+            "natija to'plasangiz, avtomatik ravishda Diplom beriladi!\n\n"
+            "✅ <i>Testga kirish uchun \"Javobni tekshirish\" tugmasini bosing.</i>",
             parse_mode="HTML"
         )
         return
 
-    text = "\U0001f4dc <b>Mening Diplomlarim</b>\n\n"
+    text = "📜 <b>Mening Diplomlarim</b>\n\n"
     buttons = []
 
     for i, cert in enumerate(certs[:10], 1):
-        result = cert.result
         test_title = ""
-        if result and result.test:
-            test_title = result.test.title[:40]
-        elif result:
-            test_title = f"Test #{result.test_id}"
+        if cert.test:
+            test_title = cert.test.title[:40]
 
         issued = cert.issued_at.strftime("%d.%m.%Y") if cert.issued_at else "Noma'lum"
-        percent = result.percentage if result else 0
+        pct = int(cert.percentage or 0)
 
-        if percent >= 90:
-            tier = "\U0001f947 I Darajali G'olib"
-        elif percent >= 75:
-            tier = "\U0001f948 II Darajali G'olib"
-        elif percent >= 60:
-            tier = "\U0001f949 III Darajali G'olib"
+        if pct >= 90:
+            tier = "🥇 I Darajali G'olib"
+        elif pct >= 75:
+            tier = "🥈 II Darajali G'olib"
         else:
-            tier = "\U0001f4dc Ishtirokchi"
+            tier = "🥉 III Darajali G'olib"
 
         text += (
             f"<b>{i}.</b> {tier}\n"
-            f"   \U0001f4cb <i>{test_title}</i>\n"
-            f"   \U0001f4ca {percent}% | \U0001f4c5 {issued}\n"
-            f"   \U0001f522 ID: <code>{cert.certificate_number}</code>\n\n"
+            f"   📋 <i>{test_title}</i>\n"
+            f"   📊 {pct}% | 📅 {issued}\n"
+            f"   🔢 ID: <code>{cert.certificate_number}</code>\n\n"
         )
         buttons.append([
             InlineKeyboardButton(
-                text=f"\U0001f4e5 {i}-Diplomni yuklab olish",
+                text=f"📥 {i}-Diplomni yuklab olish",
                 callback_data=f"download_cert:{cert.certificate_number}"
             )
         ])
 
     if len(certs) > 10:
-        text += f"\n<i>(Jami {len(certs)} ta sertifikat)</i>"
+        text += f"\n<i>(Jami {len(certs)} ta sertifikat, oxirgi 10 tasi ko'rsatilmoqda)</i>"
 
-    await message.answer(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="HTML")
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+    await message.answer(text, reply_markup=kb, parse_mode="HTML")
 
 
 @router.callback_query(F.data.startswith("download_cert:"))
 async def download_certificate_callback(callback: CallbackQuery, session: AsyncSession):
     """O'quvchi o'zining sertifikatini yuklab oladi."""
-    await callback.answer("\U0001f4e5 Diplom tayyorlanmoqda...")
+    await callback.answer("📥 Diplom tayyorlanmoqda...")
     cert_id = callback.data.split(":", 1)[1]
 
     from app.database.repositories.certificate_repo import CertificateRepository
+    from app.database.repositories.result_repo import ResultRepository
     from app.database.repositories.user_repo import UserRepository
 
     cert_repo = CertificateRepository(session)
-    cert = await cert_repo.get_by_certificate_number(cert_id)
+    # get_by_number() - to'g'ri metod nomi
+    cert = await cert_repo.get_by_number(cert_id)
 
     if not cert:
-        await callback.message.answer("\u26a0\ufe0f Sertifikat topilmadi.")
+        await callback.message.answer(
+            "⚠️ Sertifikat topilmadi.\n"
+            f"ID: <code>{cert_id}</code>",
+            parse_mode="HTML"
+        )
         return
 
-    # Fayl mavjudligini tekshiramiz
-    cert_path = cert.pdf_path if cert.pdf_path else f"/tmp/certificates/certificate_{cert_id}.png"
+    # Fayl yo'li
+    cert_path = cert.pdf_path or f"/tmp/certificates/certificate_{cert_id}.png"
 
+    # Fayl yo'qolgan bo'lsa — qayta generatsiya
     if not os.path.exists(cert_path):
-        # Qayta generatsiya
         try:
             from app.services.certificate_generator import generate_certificate
-            from app.database.repositories.result_repo import ResultRepository
             result_repo = ResultRepository(session)
+            user_repo = UserRepository(session)
             result = await result_repo.get_by_id(cert.result_id)
+            user = await user_repo.get_by_id(cert.user_id)
+
+            full_name = user.full_name if user else "O'quvchi"
+            total = 40
+            correct = 0
+            pct = int(cert.percentage or 70)
+
             if result:
-                user_repo = UserRepository(session)
-                user = await user_repo.get_by_id(result.user_id)
-                full_name = user.full_name if user else "O'quvchi"
-                total = result.correct_count + result.incorrect_count + result.unanswered_count
-                exam_title = "MATEMATIKA VA IQ TEST"
-                if result.test:
-                    exam_title = result.test.title[:60]
-                cert_path = generate_certificate(
-                    full_name=full_name,
-                    percent=int(result.percentage),
-                    correct=result.correct_count,
-                    total=max(total, 1),
-                    cert_id=cert_id,
-                    date_str=cert.issued_at.strftime("%d.%m.%Y") if cert.issued_at else None,
-                    exam_title=exam_title,
+                correct = result.correct_count
+                total = max(
+                    result.correct_count + result.incorrect_count + result.unanswered_count,
+                    1
                 )
+
+            exam_title = cert.test.title[:60] if cert.test else "MATEMATIKA VA IQ TEST"
+            date_str = cert.issued_at.strftime("%d.%m.%Y") if cert.issued_at else datetime.now().strftime("%d.%m.%Y")
+
+            cert_path = generate_certificate(
+                full_name=full_name,
+                percent=pct,
+                correct=correct,
+                total=total,
+                cert_id=cert_id,
+                date_str=date_str,
+                exam_title=exam_title,
+            )
         except Exception as e:
             logger.error(f"Sertifikat qayta generatsiya xatoligi: {e}")
-            await callback.message.answer(f"\u274c Xatolik: {e}")
+            await callback.message.answer(
+                f"❌ Diplomni tayyorlashda xatolik yuz berdi.\n"
+                f"Iltimos keyinroq urinib ko'ring yoki adminga murojaat qiling."
+            )
             return
 
+    # Yuborish
     try:
         await callback.message.answer_photo(
             FSInputFile(cert_path),
             caption=(
-                f"\U0001f3c6 <b>Sizning Diplomingiz!</b>\n\n"
-                f"\U0001f522 ID: <code>{cert_id}</code>\n"
-                f"\U0001f4e5 Saqlang va do'stlaringizga ulashing!"
+                f"🏆 <b>Sizning Diplomingiz!</b>\n\n"
+                f"🔢 <b>Sertifikat ID:</b> <code>{cert_id}</code>\n"
+                f"📊 <b>Natija:</b> {int(cert.percentage or 0)}%\n\n"
+                f"📥 Saqlang va do'stlaringizga ulashing!"
             ),
             parse_mode="HTML"
         )
@@ -137,8 +163,10 @@ async def download_certificate_callback(callback: CallbackQuery, session: AsyncS
         try:
             await callback.message.answer_document(
                 FSInputFile(cert_path),
-                caption=f"\U0001f3c6 Diplom | ID: <code>{cert_id}</code>",
+                caption=(
+                    f"🏆 <b>Diplom</b> | ID: <code>{cert_id}</code>"
+                ),
                 parse_mode="HTML"
             )
         except Exception as e2:
-            await callback.message.answer(f"\u274c Yuborishda xatolik: {e2}")
+            await callback.message.answer(f"❌ Yuborishda xatolik: {e2}")
