@@ -1,4 +1,6 @@
 from aiogram import F, Router
+from aiogram.filters import StateFilter
+from aiogram.fsm.context import FSMContext
 from aiogram.types import (
     CallbackQuery, FSInputFile,
     InlineKeyboardButton, InlineKeyboardMarkup, Message,
@@ -13,9 +15,21 @@ router = Router(name="student_certificates")
 logger = logging.getLogger(__name__)
 
 
-@router.message(F.text == "📜 Sertifikatlarim")
-async def my_certificates_list(message: Message, session: AsyncSession):
+@router.message(
+    StateFilter("*"),
+    F.text.in_([
+        "📜 Sertifikatlarim",
+        "📜 Sertifikatlar",
+        "Sertifikatlarim",
+        "Sertifikatlar",
+        "/certificates",
+        "/sertifikatlar",
+        "/sertifikat",
+    ])
+)
+async def my_certificates_list(message: Message, state: FSMContext, session: AsyncSession):
     """O'quvchining barcha sertifikatlarini ro'yxatini ko'rsatadi."""
+    await state.clear()
     from app.database.repositories.certificate_repo import CertificateRepository
     from app.database.repositories.user_repo import UserRepository
 
@@ -29,7 +43,6 @@ async def my_certificates_list(message: Message, session: AsyncSession):
         return
 
     cert_repo = CertificateRepository(session)
-    # get_user_certificates(user_id) - to'g'ri metod nomi
     certs = await cert_repo.get_user_certificates(user.id)
 
     if not certs:
@@ -92,7 +105,6 @@ async def download_certificate_callback(callback: CallbackQuery, session: AsyncS
     from app.database.repositories.user_repo import UserRepository
 
     cert_repo = CertificateRepository(session)
-    # get_by_number() - to'g'ri metod nomi
     cert = await cert_repo.get_by_number(cert_id)
 
     if not cert:
@@ -103,10 +115,8 @@ async def download_certificate_callback(callback: CallbackQuery, session: AsyncS
         )
         return
 
-    # Fayl yo'li
     cert_path = cert.pdf_path or f"/tmp/certificates/certificate_{cert_id}.png"
 
-    # Fayl yo'qolgan bo'lsa — qayta generatsiya
     if not os.path.exists(cert_path):
         try:
             from app.services.certificate_generator import generate_certificate
@@ -142,20 +152,19 @@ async def download_certificate_callback(callback: CallbackQuery, session: AsyncS
         except Exception as e:
             logger.error(f"Sertifikat qayta generatsiya xatoligi: {e}")
             await callback.message.answer(
-                f"❌ Diplomni tayyorlashda xatolik yuz berdi.\n"
-                f"Iltimos keyinroq urinib ko'ring yoki adminga murojaat qiling."
+                "❌ Diplomni tayyorlashda xatolik yuz berdi.\n"
+                "Iltimos keyinroq urinib ko'ring yoki adminga murojaat qiling."
             )
             return
 
-    # Yuborish
     try:
         await callback.message.answer_photo(
             FSInputFile(cert_path),
             caption=(
-                f"🏆 <b>Sizning Diplomingiz!</b>\n\n"
+                "🏆 <b>Sizning Diplomingiz!</b>\n\n"
                 f"🔢 <b>Sertifikat ID:</b> <code>{cert_id}</code>\n"
                 f"📊 <b>Natija:</b> {int(cert.percentage or 0)}%\n\n"
-                f"📥 Saqlang va do'stlaringizga ulashing!"
+                "📥 Saqlang va do'stlaringizga ulashing!"
             ),
             parse_mode="HTML"
         )
@@ -163,9 +172,7 @@ async def download_certificate_callback(callback: CallbackQuery, session: AsyncS
         try:
             await callback.message.answer_document(
                 FSInputFile(cert_path),
-                caption=(
-                    f"🏆 <b>Diplom</b> | ID: <code>{cert_id}</code>"
-                ),
+                caption=f"🏆 <b>Diplom</b> | ID: <code>{cert_id}</code>",
                 parse_mode="HTML"
             )
         except Exception as e2:
