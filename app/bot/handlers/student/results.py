@@ -349,3 +349,42 @@ async def share_result_callback(callback: CallbackQuery, session: AsyncSession):
         parse_mode="HTML"
     )
 
+
+@router.callback_query(F.data.startswith("check_cert_for_result:"))
+async def check_cert_for_result(callback: CallbackQuery, session: AsyncSession):
+    """Natija sahifasidan sertifikatni tekshirish/yuborish."""
+    await callback.answer()
+    result_id = int(callback.data.split(":")[1])
+    from app.database.repositories.certificate_repo import CertificateRepository
+    cert_repo = CertificateRepository(session)
+    cert = await cert_repo.get_by_result_id(result_id)
+    if cert:
+        kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(
+                text="📥 Diplomni yuklab olish",
+                callback_data=f"download_cert:{cert.certificate_number}"
+            )
+        ]])
+        await callback.message.answer(
+            f"🏆 <b>Bu test uchun Diplom mavjud!</b>\n"
+            f"🔢 ID: <code>{cert.certificate_number}</code>\n"
+            f"📊 Natija: {int(cert.percentage or 0)}%",
+            reply_markup=kb, parse_mode="HTML"
+        )
+    else:
+        from app.database.repositories.result_repo import ResultRepository
+        res_repo = ResultRepository(session)
+        res = await res_repo.get_by_id(result_id)
+        if res and res.percentage >= 70:
+            await callback.message.answer(
+                "🔄 Diplom qayta yaratilmoqda...\n"
+                "Iltimos bir oz kuting.",
+            )
+        else:
+            pct = int(res.percentage) if res else 0
+            await callback.message.answer(
+                f"📜 Bu test uchun Diplom yo'q.\n\n"
+                f"Sizning natijangiz: <b>{pct}%</b>\n"
+                f"Diplom olish uchun kamida <b>70%</b> kerak.",
+                parse_mode="HTML"
+            )
